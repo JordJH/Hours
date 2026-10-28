@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Hours">
+<meta name="theme-color" content="#f3f5f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111513" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Hours</title>
+<style>
+  :root {
+    --bg: #f3f5f4;
+    --card: #ffffff;
+    --text: #18201c;
+    --muted: #66726c;
+    --line: #e2e7e4;
+    --accent: #2f7d6d;
+    --accent-soft: #dcefe9;
+    --out: #c4661f;
+    --out-soft: #f8e6d8;
+    --warn: #b3261e;
+    --track: #e5ebe8;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111513;
+      --card: #1b211e;
+      --text: #e9efec;
+      --muted: #97a39d;
+      --line: #2a322e;
+      --accent: #5cc0a8;
+      --accent-soft: #1d3a33;
+      --out: #f0994f;
+      --out-soft: #3d2a1b;
+      --warn: #ff8a80;
+      --track: #2a322e;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    max-width: 520px; margin: 0 auto;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 14px; }
+  header h1 { font-size: 28px; margin: 0; letter-spacing: -.02em; }
+  .icon-btn { border: 0; background: var(--card); width: 40px; height: 40px; border-radius: 50%; box-shadow: var(--shadow); display: grid; place-items: center; position: relative; }
+  .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .dot { position: absolute; top: 6px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--out); border: 2px solid var(--card); }
+
+  .card { background: var(--card); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); margin-bottom: 14px; }
+
+  .weeknav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .weeknav button { border: 0; background: none; color: var(--accent); padding: 6px 10px; font-size: 22px; line-height: 1; border-radius: 10px; }
+  .weeknav button:disabled { opacity: .25; }
+  .weeknav .label { text-align: center; }
+  .weeknav .label b { display: block; font-size: 15px; }
+  .weeknav .label span { font-size: 13px; color: var(--muted); }
+
+  .big { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+  .of { color: var(--muted); font-size: 15px; }
+  .bar { height: 12px; background: var(--track); border-radius: 6px; overflow: hidden; margin: 14px 0 12px; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; transition: width .4s; }
+  .stats { display: flex; gap: 10px; }
+  .stat { flex: 1; background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+  .stat small { display: block; color: var(--muted); font-size: 12px; }
+  .stat b { font-size: 18px; }
+
+  .status { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .pill { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 99px; background: var(--track); color: var(--muted); }
+  .pill.on { background: var(--accent-soft); color: var(--accent); }
+  .hints { margin: 10px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
+  .hints li { padding: 3px 0; }
+  .hints b { color: var(--text); }
+  .main-btn { width: 100%; border: 0; border-radius: 16px; padding: 18px; font-size: 19px; font-weight: 700; margin-top: 14px; background: var(--accent); color: #fff; }
+  .main-btn.out { background: var(--out); }
+  @media (prefers-color-scheme: dark) { .main-btn { color: #0d1210; } }
+  .main-btn:active { transform: scale(.985); }
+
+  .days { padding: 6px 0; }
+  .day { display: flex; align-items: center; width: 100%; border: 0; background: none; padding: 12px 18px; text-align: left; gap: 12px; border-top: 1px solid var(--line); }
+  .day:first-child { border-top: 0; }
+  .day .d { width: 64px; flex: none; }
+  .day .d b { display: block; font-size: 15px; }
+  .day .d span { font-size: 12px; color: var(--muted); }
+  .day .t { flex: 1; font-size: 14px; color: var(--muted); min-width: 0; }
+  .day .t .note { display: block; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .day .t .warn { color: var(--warn); }
+  .day .h { font-weight: 600; font-size: 15px; }
+  .day.today .d b { color: var(--accent); }
+  .day.empty .h { color: var(--muted); font-weight: 400; }
+  .add-day { display: block; width: 100%; border: 0; border-top: 1px solid var(--line); background: none; color: var(--accent); padding: 12px 18px; text-align: left; font-size: 15px; }
+
+  .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+  dialog { border: 0; padding: 0; background: var(--card); color: var(--text); width: min(520px, 100%); max-width: 100%; max-height: 92vh; margin: auto auto 0; border-radius: 20px 20px 0 0; }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  .sheet { padding: 18px 18px max(22px, env(safe-area-inset-bottom)); }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .sheet-head h2 { margin: 0; font-size: 19px; }
+  .link { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 6px 0; }
+  .link.danger { color: var(--warn); }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input[type=text], input[type=number], input[type=url], input[type=date], input[type=time], textarea {
+    width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 16px; min-height: 44px;
+  }
+  textarea { min-height: 110px; resize: vertical; font-size: 14px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row input { flex: 1; min-width: 0; }
+  .row .x { border: 0; background: var(--bg); width: 40px; height: 44px; border-radius: 10px; color: var(--warn); font-size: 20px; flex: none; }
+  .check { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; font-size: 15px; color: var(--text); }
+  .check input { width: 22px; height: 22px; accent-color: var(--accent); }
+  .btns { display: flex; gap: 10px; margin-top: 18px; }
+  .btn { flex: 1; border: 0; border-radius: 12px; padding: 13px; font-weight: 600; background: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .btn { color: #0d1210; } }
+  .btn.ghost { background: var(--bg); color: var(--text); }
+  .section { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 6px; }
+  .section h3 { font-size: 15px; margin: 12px 0 2px; }
+  .help { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+
+  #toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(120px); background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 14px; display: flex; gap: 14px; align-items: center; transition: transform .25s; max-width: calc(100% - 32px); z-index: 10; font-size: 15px; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast button { border: 0; background: none; color: var(--accent-soft); font-weight: 700; padding: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hours</h1>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span class="dot" id="backupDot" hidden></span>
+  </button>
+</header>
+
+<section class="card" id="today"></section>
+
+<section class="card">
+  <div class="weeknav">
+    <button id="prevWeek" aria-label="Previous week">‹</button>
+    <div class="label"><b id="weekTitle"></b><span id="weekRange"></span></div>
+    <button id="nextWeek" aria-label="Next week">›</button>
+  </div>
+  <div class="big num" id="weekDone"></div>
+  <div class="of num" id="weekOf"></div>
+  <div class="bar"><i id="weekBar"></i></div>
+  <div class="stats">
+    <div class="stat"><small id="leftLabel">Left</small><b class="num" id="weekLeft"></b></div>
+    <div class="stat"><small>Days logged</small><b class="num" id="weekDays"></b></div>
+  </div>
+</section>
+
+<section class="card days" id="days" style="padding:0"></section>
+
+<p class="foot" id="foot"></p>
+
+<!-- Edit day -->
+<dialog id="editDlg">
+  <form class="sheet" method="dialog" id="editForm">
+    <div class="sheet-head">
+      <button type="button" class="link" data-close>Cancel</button>
+      <h2 id="editTitle">Edit day</h2>
+      <button type="submit" class="link" value="save">Save</button>
+    </div>
+    <label for="editDate">Date</label>
+    <input type="date" id="editDate" required>
+    <label>Check in → check out</label>
+    <div id="sessions"></div>
+    <button type="button" class="link" id="addSession">+ Add another check-in</button>
+    <label class="check"><input type="checkbox" id="editLunch"><span>Take off lunch (<span id="lunchMins"></span> min)</span></label>
+    <label class="check"><input type="checkbox" id="editOff"><span>Day off / holiday (counts as <span id="offHours"></span>)</span></label>
+    <label for="editNote">Note</label>
+    <input type="text" id="editNote" placeholder="e.g. medical appointment">
+    <div class="btns"><button type="button" class="btn ghost" id="deleteDay" style="color:var(--warn)">Delete day</button></div>
+  </form>
+</dialog>
+
+<!-- Settings -->
+<dialog id="setDlg">
+  <form class="sheet" method="dialog" id="setForm">
+    <div class="sheet-head">
+      <button type="button" class="link" data-close>Cancel</button>
+      <h2>Settings</h2>
+      <button type="submit" class="link" value="save">Save</button>
+    </div>
+    <div class="row" style="margin:0">
+      <div style="flex:1"><label for="setTarget">Weekly hours</label><input type="number" id="setTarget" step="0.25" min="0" inputmode="decimal"></div>
+      <div style="flex:1"><label for="setLunch">Lunch (minutes)</label><input type="number" id="setLunch" step="5" min="0" inputmode="numeric"></div>
+    </div>
+
+    <div class="section">
+      <h3>Google Form</h3>
+      <label class="check"><input type="checkbox" id="setOpenForm"><span>Open the form after checking in/out</span></label>
+      <label for="setFormUrl">Form link</label>
+      <input type="url" id="setFormUrl" placeholder="https://docs.google.com/forms/…" autocapitalize="off" autocomplete="off">
+      <label for="setInUrl">Pre-filled check-in link (optional)</label>
+      <input type="url" id="setInUrl" placeholder="Used instead of the form link for check-in" autocapitalize="off" autocomplete="off">
+      <label for="setOutUrl">Pre-filled check-out link (optional)</label>
+      <input type="url" id="setOutUrl" placeholder="Used instead of the form link for check-out" autocapitalize="off" autocomplete="off">
+    </div>
+
+    <div class="section">
+      <h3>Google Sheets backup</h3>
+      <p class="help">Every check-in is copied to your Google Sheet. The sheet is the master copy: fixes made there show up here.</p>
+      <label for="setSyncUrl">Script link</label>
+      <input type="url" id="setSyncUrl" placeholder="https://script.google.com/macros/s/…/exec" autocapitalize="off" autocomplete="off">
+      <label for="setSyncKey">Password</label>
+      <input type="password" id="setSyncKey" autocapitalize="off" autocomplete="off">
+      <p class="help" id="syncInfo"></p>
+      <div class="btns" style="margin-top:8px"><button type="button" class="btn ghost" id="syncBtn">Sync now</button></div>
+    </div>
+
+    <div class="section">
+      <h3>Import from Notes</h3>
+      <p class="help">Open your “Check in and out times” note, select all, copy, and paste it here. Days already in the app with the same date are replaced.</p>
+      <textarea id="importText" placeholder="19/10/2026&#10;07:49&#10;16:11&#10;--------------"></textarea>
+      <div class="btns" style="margin-top:8px"><button type="button" class="btn ghost" id="importBtn">Import</button></div>
+    </div>
+
+    <div class="section">
+      <h3>Backup</h3>
+      <p class="help" id="backupInfo"></p>
+      <div class="btns" style="margin-top:8px">
+        <button type="button" class="btn ghost" id="exportBtn">Save backup</button>
+        <button type="button" class="btn ghost" id="restoreBtn">Restore</button>
+      </div>
+      <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status"><span id="toastMsg"></span><button id="toastUndo" hidden>Undo</button></div>
+
+<script>
+const KEY = 'hours-tracker-v1';
+const DEFAULTS = { target: 37.5, lunch: 30, openForm: true, formUrl: '', inUrl: '', outUrl: '', syncUrl: '', syncKey: '' };
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fromIso = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const clock = m => { m = Math.round(m); return `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`; };
+const dur = m => { m = Math.max(0, Math.round(m)); return `${Math.floor(m / 60)}h ${pad(m % 60)}m`; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const monday = d => addDays(new Date(d.getFullYear(), d.getMonth(), d.getDate()), -((d.getDay() + 6) % 7));
+const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const short = d => `${d.getDate()} ${MON[d.getMonth()]}`;
+
+// ---- storage ----
+let state = load();
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && s.days) return { days: s.days, settings: { ...DEFAULTS, ...s.settings }, lastBackup: s.lastBackup || 0, pending: s.pending || {}, lastSync: s.lastSync || 0 };
+  } catch (e) {}
+  return { days: {}, settings: { ...DEFAULTS }, lastBackup: 0, pending: {}, lastSync: 0 };
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch (e) { toast('Couldn’t save – storage is unavailable'); }
+}
+const newDay = () => ({ s: [], lunch: true, off: false, note: '' });
+
+// ---- Google Sheets sync ----
+// Changed dates wait in state.pending (date → change count) until the sheet confirms them.
+// After each send, the sheet's copy replaces ours, apart from dates changed meanwhile.
+let syncing = false, syncError = '', syncTimer;
+function markDirty(...keys) {
+  for (const k of keys) state.pending[k] = (state.pending[k] || 0) + 1;
+  save();
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(sync, 300);
+}
+async function sync() {
+  const { syncUrl, syncKey } = state.settings;
+  if (!syncUrl || syncing) return;
+  syncing = true; syncError = ''; renderSync();
+  try {
+    const sent = { ...state.pending };
+    const days = {};
+    for (const k in sent) days[k] = state.days[k] || null;
+    const res = await fetch(syncUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ key: syncKey, action: Object.keys(days).length ? 'put' : 'list', days }),
+    }).then(r => r.json());
+    if (!res.ok) throw new Error(res.error || 'Sync failed');
+    for (const k in sent) if (state.pending[k] === sent[k]) delete state.pending[k];
+    const merged = res.days || {};
+    // An empty sheet would wipe everything here – more likely a wrong link than real.
+    if (!Object.keys(merged).length && Object.keys(state.days).length) throw new Error('The sheet is empty – tap Sync now in settings to upload');
+    for (const k in state.pending) { if (state.days[k]) merged[k] = state.days[k]; else delete merged[k]; }
+    state.days = merged;
+    state.lastSync = Date.now();
+    save();
+  } catch (e) {
+    syncError = e.name === 'TypeError' ? 'No connection – will retry'
+      : e.name === 'SyntaxError' ? 'the script link didn’t reply – check it ends in /exec and access is set to Anyone'
+      : e.message;
+  } finally {
+    syncing = false;
+    render();
+  }
+}
+function syncText() {
+  if (!state.settings.syncUrl) return 'Your times are stored on this phone only.';
+  if (syncing) return 'Backing up…';
+  const waiting = Object.keys(state.pending).length;
+  if (syncError) return `Not backed up: ${syncError}`;
+  if (waiting) return `${waiting} change${waiting > 1 ? 's' : ''} waiting to back up`;
+  if (!state.lastSync) return 'Not backed up yet';
+  const d = new Date(state.lastSync);
+  return `Backed up to Google Sheets ${iso(d) === iso(new Date()) ? 'at ' + hhmm(d) : 'on ' + d.toLocaleDateString('en-GB')}`;
+}
+function renderSync() {
+  $('foot').textContent = syncText();
+  $('foot').style.color = syncError ? 'var(--warn)' : '';
+  $('syncInfo').textContent = state.settings.syncUrl ? syncText() : '';
+}
+
+// ---- maths ----
+const dailyTarget = () => state.settings.target * 60 / 5;
+
+function dayMinutes(key, now) {
+  const day = state.days[key];
+  if (!day) return { gross: 0, net: 0, open: false, missing: false };
+  const isToday = key === iso(now);
+  const nowM = now.getHours() * 60 + now.getMinutes();
+  let gross = 0, open = false, missing = false;
+  for (const s of day.s) {
+    if (!s.i) continue;
+    let end;
+    if (s.o) end = toMin(s.o);
+    else if (isToday) { end = nowM; open = true; }
+    else { missing = true; continue; }
+    gross += Math.max(0, end - toMin(s.i));
+  }
+  let net = gross;
+  if (day.lunch !== false && gross > 0) net = Math.max(0, gross - state.settings.lunch);
+  if (day.off) net += dailyTarget();
+  return { gross, net, open, missing };
+}
+
+function weekTotal(mon, now) {
+  let net = 0, logged = 0;
+  for (let i = 0; i < 7; i++) {
+    const m = dayMinutes(iso(addDays(mon, i)), now);
+    net += m.net;
+    if (m.net > 0) logged++;
+  }
+  return { net, logged };
+}
+
+// ---- render ----
+let viewMon = monday(new Date());
+
+function render() {
+  const now = new Date();
+  const todayKey = iso(now);
+  const thisMon = monday(now);
+  const target = state.settings.target * 60;
+
+  // today card
+  const day = state.days[todayKey];
+  const last = day && day.s[day.s.length - 1];
+  const isIn = !!(last && last.i && !last.o);
+  const t = dayMinutes(todayKey, now);
+  const week = weekTotal(thisMon, now);
+  const left = target - week.net;
+  const lunchLeft = day && day.lunch !== false ? Math.max(0, state.settings.lunch - t.gross) : 0;
+  const hints = [];
+  if (isIn) {
+    const dayAt = now.getHours() * 60 + now.getMinutes() + (dailyTarget() - t.net) + lunchLeft;
+    if (t.net < dailyTarget()) hints.push(`${dur(dailyTarget())} day done at <b class="num">${clock(dayAt)}</b>`);
+    else hints.push(`Today’s ${dur(dailyTarget())} is done`);
+  }
+  if (left <= 0) hints.push(`Week target hit${left < 0 ? ` – <b class="num">${dur(-left)}</b> over` : ''}`);
+  else if (isIn) {
+    const at = now.getHours() * 60 + now.getMinutes() + left + lunchLeft;
+    if (at < 24 * 60) hints.push(`Week target hit at <b class="num">${clock(at)}</b> today`);
+  }
+  if (left > 0) {
+    const wd = (now.getDay() + 6) % 7;
+    const daysLeft = Math.max(0, 5 - wd - (t.gross > 0 && !isIn ? 1 : 0));
+    if (daysLeft > 0 && !(isIn && daysLeft === 1)) hints.push(`Need <b class="num">${dur(left / daysLeft)}</b> a day over ${daysLeft} more day${daysLeft > 1 ? 's' : ''}`);
+  }
+  const sinceTxt = isIn ? `since ${last.i}` : (t.gross ? `${dur(t.net)} today` : 'Not checked in today');
+  $('today').innerHTML = `
+    <div class="status"><span class="pill ${isIn ? 'on' : ''}">${isIn ? 'Checked in' : 'Checked out'}</span><span class="num" style="color:var(--muted);font-size:14px">${sinceTxt}</span></div>
+    ${isIn ? `<div class="big num">${dur(t.net)}</div><div class="of">today, after lunch</div>` : ''}
+    <ul class="hints">${hints.map(h => `<li>${h}</li>`).join('')}</ul>
+    <button class="main-btn ${isIn ? 'out' : ''}" id="mainBtn">${isIn ? 'Check out' : 'Check in'}</button>`;
+  $('mainBtn').onclick = toggleCheck;
+
+  // week card
+  const vw = weekTotal(viewMon, now);
+  const diffWeeks = Math.round((thisMon - viewMon) / (7 * 864e5));
+  $('weekTitle').textContent = diffWeeks === 0 ? 'This week' : diffWeeks === 1 ? 'Last week' : `${diffWeeks} weeks ago`;
+  $('weekRange').textContent = `${short(viewMon)} – ${short(addDays(viewMon, 4))}`;
+  $('nextWeek').disabled = diffWeeks <= 0;
+  $('weekDone').textContent = dur(vw.net);
+  $('weekOf').textContent = `of ${dur(target)}`;
+  $('weekBar').style.width = `${Math.min(100, target ? vw.net / target * 100 : 0)}%`;
+  const vLeft = target - vw.net;
+  $('leftLabel').textContent = vLeft >= 0 ? 'Left' : 'Over';
+  $('weekLeft').textContent = dur(Math.abs(vLeft));
+  $('weekDays').textContent = vw.logged;
+
+  // day list
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(viewMon, i);
+    const key = iso(d);
+    const rec = state.days[key];
+    if (i >= 5 && !rec) continue;
+    const m = dayMinutes(key, now);
+    let times = '', cls = 'day';
+    if (key === todayKey) cls += ' today';
+    if (!rec || (!rec.s.length && !rec.off)) { cls += ' empty'; times = d > now ? '' : '—'; }
+    else {
+      times = rec.s.map(s => `${s.i || '?'}–${s.o || (key === todayKey ? 'now' : '<span class="warn">no check-out</span>')}`).join(', ');
+      if (rec.off) times = (times ? times + ', ' : '') + 'day off';
+    }
+    const note = rec && rec.note ? `<span class="note">${esc(rec.note)}</span>` : '';
+    html += `<button class="${cls}" data-key="${key}">
+      <span class="d"><b>${WD[i]}</b><span>${short(d)}</span></span>
+      <span class="t num">${times}${note}</span>
+      <span class="h num">${m.net || rec ? dur(m.net) : ''}</span></button>`;
+  }
+  html += `<button class="add-day" id="addDay">+ Add or fix a day</button>`;
+  $('days').innerHTML = html;
+  $('days').querySelectorAll('.day').forEach(b => b.onclick = () => openEdit(b.dataset.key));
+  $('addDay').onclick = () => openEdit(null);
+
+  const backedUp = Math.max(state.lastBackup, state.settings.syncUrl ? state.lastSync : 0);
+  $('backupDot').hidden = !(Object.keys(state.days).length && Date.now() - backedUp > 14 * 864e5);
+  renderSync();
+}
+
+function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// ---- check in / out ----
+function toggleCheck() {
+  const now = new Date();
+  const key = iso(now);
+  const before = state.days[key] ? JSON.parse(JSON.stringify(state.days[key])) : null;
+  const day = state.days[key] || (state.days[key] = newDay());
+  const last = day.s[day.s.length - 1];
+  const t = hhmm(now);
+  let action;
+  if (last && last.i && !last.o) { last.o = t; action = 'out'; }
+  else { day.s.push({ i: t, o: '' }); action = 'in'; }
+  markDirty(key);
+  viewMon = monday(now);
+  render();
+  toast(`Checked ${action} at ${t}`, () => {
+    if (before) state.days[key] = before; else delete state.days[key];
+    markDirty(key); render();
+  });
+  const s = state.settings;
+  const url = (action === 'in' ? s.inUrl : s.outUrl) || s.formUrl;
+  if (s.openForm && url) window.open(url, '_blank');
+}
+
+// ---- toast ----
+let toastTimer;
+function toast(msg, undo) {
+  $('toastMsg').textContent = msg;
+  $('toastUndo').hidden = !undo;
+  $('toastUndo').onclick = () => { undo(); hideToast(); };
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, undo ? 6000 : 3000);
+}
+function hideToast() { $('toast').classList.remove('show'); }
+
+// ---- edit day ----
+let editingKey = null;
+function sessionRow(s = { i: '', o: '' }) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<input type="time" class="si" value="${s.i}" aria-label="Check in"><span>→</span><input type="time" class="so" value="${s.o}" aria-label="Check out"><button type="button" class="x" aria-label="Remove">×</button>`;
+  row.querySelector('.x').onclick = () => row.remove();
+  $('sessions').appendChild(row);
+}
+function openEdit(key) {
+  editingKey = key;
+  const rec = (key && state.days[key]) || newDay();
+  $('editTitle').textContent = key ? `${WD[(fromIso(key).getDay() + 6) % 7]} ${short(fromIso(key))}` : 'Add a day';
+  $('editDate').value = key || iso(new Date());
+  $('sessions').innerHTML = '';
+  (rec.s.length ? rec.s : [{ i: '', o: '' }]).forEach(sessionRow);
+  $('editLunch').checked = rec.lunch !== false;
+  $('editOff').checked = !!rec.off;
+  $('editNote').value = rec.note || '';
+  $('lunchMins').textContent = state.settings.lunch;
+  $('offHours').textContent = dur(dailyTarget());
+  $('deleteDay').hidden = !key || !state.days[key];
+  $('editDlg').showModal();
+}
+$('addSession').onclick = () => sessionRow();
+$('editForm').onsubmit = e => {
+  e.preventDefault();
+  const key = $('editDate').value;
+  if (!key) return;
+  const s = [...$('sessions').querySelectorAll('.row')]
+    .map(r => ({ i: r.querySelector('.si').value, o: r.querySelector('.so').value }))
+    .filter(x => x.i);
+  for (const x of s) if (x.o && toMin(x.o) < toMin(x.i)) { toast('A check-out is before its check-in'); return; }
+  s.sort((a, b) => toMin(a.i) - toMin(b.i));
+  const rec = { s, lunch: $('editLunch').checked, off: $('editOff').checked, note: $('editNote').value.trim() };
+  if (editingKey && editingKey !== key) delete state.days[editingKey];
+  if (!s.length && !rec.off && !rec.note) delete state.days[key];
+  else state.days[key] = rec;
+  markDirty(key, ...(editingKey && editingKey !== key ? [editingKey] : []));
+  viewMon = monday(fromIso(key));
+  $('editDlg').close();
+  render();
+};
+$('deleteDay').onclick = () => {
+  if (!confirm('Delete this day?')) return;
+  delete state.days[editingKey];
+  markDirty(editingKey); $('editDlg').close(); render();
+};
+
+// ---- settings ----
+$('settingsBtn').onclick = () => {
+  const s = state.settings;
+  $('setTarget').value = s.target;
+  $('setLunch').value = s.lunch;
+  $('setOpenForm').checked = s.openForm;
+  $('setFormUrl').value = s.formUrl;
+  $('setInUrl').value = s.inUrl;
+  $('setOutUrl').value = s.outUrl;
+  $('setSyncUrl').value = s.syncUrl;
+  $('setSyncKey').value = s.syncKey;
+  $('importText').value = '';
+  $('backupInfo').textContent = state.lastBackup
+    ? `Last backup: ${new Date(state.lastBackup).toLocaleDateString('en-GB')}. Save one to Files every couple of weeks in case the phone clears website data.`
+    : 'No backup yet. Save one to Files every couple of weeks in case the phone clears website data.';
+  $('setDlg').showModal();
+};
+$('setForm').onsubmit = e => {
+  e.preventDefault();
+  const old = state.settings;
+  const target = parseFloat($('setTarget').value);
+  const lunch = parseInt($('setLunch').value, 10);
+  state.settings = {
+    target: isFinite(target) && target >= 0 ? target : DEFAULTS.target,
+    lunch: isFinite(lunch) && lunch >= 0 ? lunch : DEFAULTS.lunch,
+    openForm: $('setOpenForm').checked,
+    formUrl: $('setFormUrl').value.trim(),
+    inUrl: $('setInUrl').value.trim(),
+    outUrl: $('setOutUrl').value.trim(),
+    syncUrl: $('setSyncUrl').value.trim(),
+    syncKey: $('setSyncKey').value,
+  };
+  // New sheet details: send everything so the sheet starts with the full history.
+  if (state.settings.syncUrl && (state.settings.syncUrl !== old.syncUrl || state.settings.syncKey !== old.syncKey)) uploadAll();
+  else save();
+  $('setDlg').close(); render();
+};
+function uploadAll() {
+  const keys = Object.keys(state.days);
+  if (keys.length) markDirty(...keys); else { save(); sync(); }
+}
+$('syncBtn').onclick = () => {
+  state.settings.syncUrl = $('setSyncUrl').value.trim();
+  state.settings.syncKey = $('setSyncKey').value;
+  if (!state.settings.syncUrl) { toast('Paste the script link first'); return; }
+  uploadAll();
+};
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
+
+// ---- import from Notes ----
+// Reads the Shortcut's layout: a dd/mm/yyyy line, then alternating check-in/check-out
+// times, with "-----" between days. Any other text becomes the day's note.
+function parseNotes(text) {
+  const out = {};
+  let cur = null, lastDay = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^[-–—_]{3,}$/.test(line)) { cur = null; continue; }
+    let rest = line;
+    const dm = line.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\b[,\s]*(.*)$/);
+    if (dm) {
+      const y = dm[3].length === 2 ? '20' + dm[3] : dm[3];
+      const key = `${y}-${pad(dm[2])}-${pad(dm[1])}`;
+      cur = lastDay = out[key] || (out[key] = newDay());
+      rest = dm[4].trim();
+      if (!rest) continue;
+    }
+    const tm = rest.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (tm && cur) {
+      const t = `${pad(tm[1])}:${tm[2]}`;
+      const last = cur.s[cur.s.length - 1];
+      if (last && !last.o) last.o = t; else cur.s.push({ i: t, o: '' });
+      continue;
+    }
+    const target = cur || lastDay;
+    if (target) target.note = (target.note ? target.note + '; ' : '') + rest.replace(/^\((.*)\)$/, '$1');
+  }
+  return out;
+}
+$('importBtn').onclick = () => {
+  const days = parseNotes($('importText').value);
+  const keys = Object.keys(days).sort();
+  if (!keys.length) { toast('No dates found – check the pasted text'); return; }
+  if (!confirm(`Import ${keys.length} day${keys.length > 1 ? 's' : ''} (${keys[0].split('-').reverse().join('/')} to ${keys[keys.length - 1].split('-').reverse().join('/')})?`)) return;
+  Object.assign(state.days, days);
+  markDirty(...keys); $('setDlg').close(); render();
+  toast(`Imported ${keys.length} days`);
+};
+
+// ---- backup ----
+$('exportBtn').onclick = async () => {
+  const { syncKey, ...settings } = state.settings; // keep the sheet password out of backup files
+  const json = JSON.stringify({ app: 'hours', version: 1, exported: new Date().toISOString(), days: state.days, settings }, null, 1);
+  const name = `hours-backup-${iso(new Date())}.json`;
+  const file = new File([json], name, { type: 'application/json' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
+    else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(file); a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+    state.lastBackup = Date.now(); save(); render();
+    $('backupInfo').textContent = `Last backup: ${new Date().toLocaleDateString('en-GB')}.`;
+  } catch (e) { if (e.name !== 'AbortError') toast('Backup failed'); }
+};
+$('restoreBtn').onclick = () => $('restoreFile').click();
+$('restoreFile').onchange = async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (!data.days) throw new Error();
+    if (!confirm(`Restore ${Object.keys(data.days).length} days from this backup? This replaces everything in the app.`)) return;
+    const oldKeys = Object.keys(state.days);
+    state.days = data.days;
+    const { syncUrl, syncKey } = state.settings;
+    if (data.settings) state.settings = { ...DEFAULTS, ...data.settings, syncUrl, syncKey };
+    markDirty(...oldKeys, ...Object.keys(data.days)); $('setDlg').close(); render();
+    toast('Backup restored');
+  } catch (err) { toast('That file isn’t a Hours backup'); }
+};
+
+// ---- week nav + refresh ----
+$('prevWeek').onclick = () => { viewMon = addDays(viewMon, -7); render(); };
+$('nextWeek').onclick = () => { viewMon = addDays(viewMon, 7); render(); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { viewMon = monday(new Date()); render(); sync(); } });
+window.addEventListener('online', sync);
+setInterval(render, 30000);
+render();
+sync();
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
