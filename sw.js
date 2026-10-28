@@ -1,5 +1,5 @@
 // Network first so updates show up, cached copy when offline.
-const CACHE = 'hours-v2';
+const CACHE = 'hours-v3';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

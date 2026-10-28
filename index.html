@@ -85,6 +85,10 @@
   .hints { margin: 10px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
   .hints li { padding: 3px 0; }
   .hints b { color: var(--text); }
+  .seg { display: flex; background: var(--bg); border-radius: 12px; padding: 3px; margin-top: 14px; }
+  .seg button { flex: 1; border: 0; background: none; padding: 10px; border-radius: 10px; font-weight: 600; color: var(--muted); }
+  .seg button[aria-checked="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  @media (prefers-color-scheme: dark) { .seg button[aria-checked="true"] { background: var(--track); } }
   .main-btn { width: 100%; border: 0; border-radius: 16px; padding: 18px; font-size: 19px; font-weight: 700; margin-top: 14px; background: var(--accent); color: #fff; }
   .main-btn.out { background: var(--out); }
   @media (prefers-color-scheme: dark) { .main-btn { color: #0d1210; } }
@@ -114,7 +118,7 @@
   .link { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 6px 0; }
   .link.danger { color: var(--warn); }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
-  input[type=text], input[type=number], input[type=url], input[type=date], input[type=time], textarea {
+  input[type=text], input[type=number], input[type=url], input[type=password], input[type=date], input[type=time], textarea, select {
     width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 16px; min-height: 44px;
   }
   textarea { min-height: 110px; resize: vertical; font-size: 14px; }
@@ -181,6 +185,8 @@
     <button type="button" class="link" id="addSession">+ Add another check-in</button>
     <label class="check"><input type="checkbox" id="editLunch"><span>Take off lunch (<span id="lunchMins"></span> min)</span></label>
     <label class="check"><input type="checkbox" id="editOff"><span>Day off / holiday (counts as <span id="offHours"></span>)</span></label>
+    <label for="editWt">Where</label>
+    <select id="editWt"><option value="office">In office</option><option value="wfh">WFH</option><option value="">Not recorded</option></select>
     <label for="editNote">Note</label>
     <input type="text" id="editNote" placeholder="e.g. medical appointment">
     <div class="btns"><button type="button" class="btn ghost" id="deleteDay" style="color:var(--warn)">Delete day</button></div>
@@ -205,10 +211,7 @@
       <label class="check"><input type="checkbox" id="setOpenForm"><span>Open the form after checking in/out</span></label>
       <label for="setFormUrl">Form link</label>
       <input type="url" id="setFormUrl" placeholder="https://docs.google.com/forms/…" autocapitalize="off" autocomplete="off">
-      <label for="setInUrl">Pre-filled check-in link (optional)</label>
-      <input type="url" id="setInUrl" placeholder="Used instead of the form link for check-in" autocapitalize="off" autocomplete="off">
-      <label for="setOutUrl">Pre-filled check-out link (optional)</label>
-      <input type="url" id="setOutUrl" placeholder="Used instead of the form link for check-out" autocapitalize="off" autocomplete="off">
+      <p class="help">The form opens with In office/WFH and Check-in/Check-out already picked, plus “30 min lunch” as the reason when you tick lunch.</p>
     </div>
 
     <div class="section">
@@ -245,7 +248,10 @@
 
 <script>
 const KEY = 'hours-tracker-v1';
-const DEFAULTS = { target: 37.5, lunch: 30, openForm: true, formUrl: '', inUrl: '', outUrl: '', syncUrl: '', syncKey: '' };
+const DEFAULTS = { target: 37.5, lunch: 30, openForm: true, formUrl: '', syncUrl: '', syncKey: '', workType: 'office' };
+// The Holosphere form's question IDs, used to pre-fill it.
+const FORM = { workType: 'entry.1305083342', action: 'entry.1404609471', reason: 'entry.985430679' };
+const WORK_TYPES = { office: { label: 'In office', form: 'In Office' }, wfh: { label: 'WFH', form: 'Remote' } };
 
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
@@ -266,7 +272,7 @@ let state = load();
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.days) return { days: s.days, settings: { ...DEFAULTS, ...s.settings }, lastBackup: s.lastBackup || 0, pending: s.pending || {}, lastSync: s.lastSync || 0 };
+    if (s && s.days) return { days: s.days, settings: { ...DEFAULTS, ...s.settings }, lastBackup: s.lastBackup || 0, pending: s.pending || {}, lastSync: s.lastSync || 0, lunchPick: s.lunchPick || null };
   } catch (e) {}
   return { days: {}, settings: { ...DEFAULTS }, lastBackup: 0, pending: {}, lastSync: 0 };
 }
@@ -309,7 +315,8 @@ async function sync() {
     state.lastSync = Date.now();
     save();
   } catch (e) {
-    syncError = e.name === 'TypeError' ? 'No connection – will retry'
+    syncError = e.name === 'TypeError'
+      ? (navigator.onLine ? 'couldn’t reach the script – check the link is the Web app one ending in /exec' : 'No connection – will retry')
       : e.name === 'SyntaxError' ? 'the script link didn’t reply – check it ends in /exec and access is set to Anyone'
       : e.message;
   } finally {
@@ -404,8 +411,14 @@ function render() {
     <div class="status"><span class="pill ${isIn ? 'on' : ''}">${isIn ? 'Checked in' : 'Checked out'}</span><span class="num" style="color:var(--muted);font-size:14px">${sinceTxt}</span></div>
     ${isIn ? `<div class="big num">${dur(t.net)}</div><div class="of">today, after lunch</div>` : ''}
     <ul class="hints">${hints.map(h => `<li>${h}</li>`).join('')}</ul>
+    <div class="seg" role="radiogroup" aria-label="Where are you working?">
+      ${Object.entries(WORK_TYPES).map(([k, v]) => `<button role="radio" aria-checked="${state.settings.workType === k}" data-wt="${k}">${v.label}</button>`).join('')}
+    </div>
+    <label class="check"><input type="checkbox" id="lunchTick" ${todayLunch(todayKey) ? 'checked' : ''}><span>${state.settings.lunch} min lunch</span></label>
     <button class="main-btn ${isIn ? 'out' : ''}" id="mainBtn">${isIn ? 'Check out' : 'Check in'}</button>`;
   $('mainBtn').onclick = toggleCheck;
+  $('today').querySelectorAll('[data-wt]').forEach(b => b.onclick = () => setWorkType(b.dataset.wt));
+  $('lunchTick').onchange = e => setTodayLunch(e.target.checked);
 
   // week card
   const vw = weekTotal(viewMon, now);
@@ -435,6 +448,7 @@ function render() {
     else {
       times = rec.s.map(s => `${s.i || '?'}–${s.o || (key === todayKey ? 'now' : '<span class="warn">no check-out</span>')}`).join(', ');
       if (rec.off) times = (times ? times + ', ' : '') + 'day off';
+      if (rec.wt === 'wfh') times += ' · WFH';
     }
     const note = rec && rec.note ? `<span class="note">${esc(rec.note)}</span>` : '';
     html += `<button class="${cls}" data-key="${key}">
@@ -459,12 +473,14 @@ function toggleCheck() {
   const now = new Date();
   const key = iso(now);
   const before = state.days[key] ? JSON.parse(JSON.stringify(state.days[key])) : null;
-  const day = state.days[key] || (state.days[key] = newDay());
+  const lunchOn = todayLunch(key);
+  const day = state.days[key] || (state.days[key] = { ...newDay(), lunch: lunchOn });
   const last = day.s[day.s.length - 1];
   const t = hhmm(now);
   let action;
   if (last && last.i && !last.o) { last.o = t; action = 'out'; }
   else { day.s.push({ i: t, o: '' }); action = 'in'; }
+  day.wt = state.settings.workType;
   markDirty(key);
   viewMon = monday(now);
   render();
@@ -472,9 +488,38 @@ function toggleCheck() {
     if (before) state.days[key] = before; else delete state.days[key];
     markDirty(key); render();
   });
-  const s = state.settings;
-  const url = (action === 'in' ? s.inUrl : s.outUrl) || s.formUrl;
-  if (s.openForm && url) window.open(url, '_blank');
+  const url = formLink(action, day);
+  if (state.settings.openForm && url) window.open(url, '_blank');
+}
+
+// Builds the form link with this check-in/out's answers already filled in.
+function formLink(action, day) {
+  const base = state.settings.formUrl.split('?')[0];
+  if (!base) return '';
+  const p = new URLSearchParams({ usp: 'pp_url' });
+  p.set(FORM.workType, WORK_TYPES[state.settings.workType].form);
+  p.set(FORM.action, action === 'in' ? 'Check-in' : 'Check-out');
+  if (action === 'out' && day.lunch !== false) p.set(FORM.reason, `${state.settings.lunch} min lunch`);
+  return `${base}?${p}`;
+}
+
+// Lunch tick for today: the day's own setting once it exists, otherwise what was ticked before checking in.
+function todayLunch(key) {
+  if (state.days[key]) return state.days[key].lunch !== false;
+  return !(state.lunchPick && state.lunchPick.date === key && !state.lunchPick.on);
+}
+function setTodayLunch(on) {
+  const key = iso(new Date());
+  if (state.days[key]) { state.days[key].lunch = on; markDirty(key); }
+  else { state.lunchPick = { date: key, on }; save(); }
+  render();
+}
+function setWorkType(wt) {
+  state.settings.workType = wt;
+  const key = iso(new Date());
+  if (state.days[key] && state.days[key].s.length) { state.days[key].wt = wt; markDirty(key); }
+  else save();
+  render();
 }
 
 // ---- toast ----
@@ -508,6 +553,7 @@ function openEdit(key) {
   $('editLunch').checked = rec.lunch !== false;
   $('editOff').checked = !!rec.off;
   $('editNote').value = rec.note || '';
+  $('editWt').value = rec.wt || '';
   $('lunchMins').textContent = state.settings.lunch;
   $('offHours').textContent = dur(dailyTarget());
   $('deleteDay').hidden = !key || !state.days[key];
@@ -523,7 +569,7 @@ $('editForm').onsubmit = e => {
     .filter(x => x.i);
   for (const x of s) if (x.o && toMin(x.o) < toMin(x.i)) { toast('A check-out is before its check-in'); return; }
   s.sort((a, b) => toMin(a.i) - toMin(b.i));
-  const rec = { s, lunch: $('editLunch').checked, off: $('editOff').checked, note: $('editNote').value.trim() };
+  const rec = { s, lunch: $('editLunch').checked, off: $('editOff').checked, note: $('editNote').value.trim(), wt: $('editWt').value };
   if (editingKey && editingKey !== key) delete state.days[editingKey];
   if (!s.length && !rec.off && !rec.note) delete state.days[key];
   else state.days[key] = rec;
@@ -545,8 +591,6 @@ $('settingsBtn').onclick = () => {
   $('setLunch').value = s.lunch;
   $('setOpenForm').checked = s.openForm;
   $('setFormUrl').value = s.formUrl;
-  $('setInUrl').value = s.inUrl;
-  $('setOutUrl').value = s.outUrl;
   $('setSyncUrl').value = s.syncUrl;
   $('setSyncKey').value = s.syncKey;
   $('importText').value = '';
@@ -561,12 +605,11 @@ $('setForm').onsubmit = e => {
   const target = parseFloat($('setTarget').value);
   const lunch = parseInt($('setLunch').value, 10);
   state.settings = {
+    ...old,
     target: isFinite(target) && target >= 0 ? target : DEFAULTS.target,
     lunch: isFinite(lunch) && lunch >= 0 ? lunch : DEFAULTS.lunch,
     openForm: $('setOpenForm').checked,
     formUrl: $('setFormUrl').value.trim(),
-    inUrl: $('setInUrl').value.trim(),
-    outUrl: $('setOutUrl').value.trim(),
     syncUrl: $('setSyncUrl').value.trim(),
     syncKey: $('setSyncKey').value,
   };
