@@ -5,44 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Hours">
-<meta name="theme-color" content="#f3f5f4" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111513" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#111513" id="themeColor">
+<script>
+  // Pick the theme before anything draws, so it opens dark instead of flashing white.
+  (function () {
+    var t = 'dark';
+    try { t = (JSON.parse(localStorage.getItem('hours-tracker-v1')) || {}).settings.theme || 'dark'; } catch (e) {}
+    if (t === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Hours</title>
 <style>
+  /* Dark is the default; light only when chosen in settings (or the phone is light with "Match phone"). */
   :root {
+    color-scheme: dark;
+    --bg: #111513;
+    --card: #1b211e;
+    --raised: #2a322e;
+    --text: #e9efec;
+    --muted: #97a39d;
+    --line: #2a322e;
+    --accent: #5cc0a8;
+    --accent-soft: #1d3a33;
+    --on-accent: #0d1210;
+    --out: #f0994f;
+    --warn: #ff8a80;
+    --track: #2a322e;
+    --toast-bg: #2f3934;
+    --toast-text: #e9efec;
+    --toast-action: #7fd6c0;
+    --shadow: none;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
     --bg: #f3f5f4;
     --card: #ffffff;
+    --raised: #ffffff;
     --text: #18201c;
-    --muted: #66726c;
+    --muted: #616d67;
     --line: #e2e7e4;
-    --accent: #2f7d6d;
+    --accent: #28705f;
     --accent-soft: #dcefe9;
-    --out: #c4661f;
-    --out-soft: #f8e6d8;
+    --on-accent: #ffffff;
+    --out: #ad5517;
     --warn: #b3261e;
     --track: #e5ebe8;
+    --toast-bg: #18201c;
+    --toast-text: #ffffff;
+    --toast-action: #8fdcc8;
     --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.05);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #111513;
-      --card: #1b211e;
-      --text: #e9efec;
-      --muted: #97a39d;
-      --line: #2a322e;
-      --accent: #5cc0a8;
-      --accent-soft: #1d3a33;
-      --out: #f0994f;
-      --out-soft: #3d2a1b;
-      --warn: #ff8a80;
-      --track: #2a322e;
-      --shadow: none;
-    }
+  /* The status bar text is white, so in light mode keep a dark strip behind it when opened from the home screen. */
+  @media (display-mode: standalone) {
+    :root[data-theme="light"] body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: #18201c; z-index: 20; }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
@@ -51,7 +73,7 @@
     padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     max-width: 520px; margin: 0 auto;
   }
-  button, input, textarea { font: inherit; color: inherit; }
+  button, input, textarea, select { font: inherit; color: inherit; }
   button { cursor: pointer; }
   .num { font-variant-numeric: tabular-nums; }
 
@@ -87,11 +109,9 @@
   .hints b { color: var(--text); }
   .seg { display: flex; background: var(--bg); border-radius: 12px; padding: 3px; margin-top: 14px; }
   .seg button { flex: 1; border: 0; background: none; padding: 10px; border-radius: 10px; font-weight: 600; color: var(--muted); }
-  .seg button[aria-checked="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-  @media (prefers-color-scheme: dark) { .seg button[aria-checked="true"] { background: var(--track); } }
-  .main-btn { width: 100%; border: 0; border-radius: 16px; padding: 18px; font-size: 19px; font-weight: 700; margin-top: 14px; background: var(--accent); color: #fff; }
+  .seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .main-btn { width: 100%; border: 0; border-radius: 16px; padding: 18px; font-size: 19px; font-weight: 700; margin-top: 14px; background: var(--accent); color: var(--on-accent); }
   .main-btn.out { background: var(--out); }
-  @media (prefers-color-scheme: dark) { .main-btn { color: #0d1210; } }
   .main-btn:active { transform: scale(.985); }
 
   .days { padding: 6px 0; }
@@ -109,6 +129,24 @@
   .add-day { display: block; width: 100%; border: 0; border-top: 1px solid var(--line); background: none; color: var(--accent); padding: 12px 18px; text-align: left; font-size: 15px; }
 
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .head-btns { display: flex; gap: 10px; }
+
+  .bal { margin: 4px 0 2px; }
+  .bal.over { color: var(--accent); }
+  .bal.under { color: var(--out); }
+  .months { margin-top: 18px; }
+  .month { padding: 12px 0; border-top: 1px solid var(--line); }
+  .month-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .month-top b { font-size: 15px; }
+  .month-top .diff { font-weight: 700; font-size: 15px; }
+  .month-top .diff.over { color: var(--accent); }
+  .month-top .diff.under { color: var(--out); }
+  .month small { display: block; color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .dbar { position: relative; height: 8px; background: var(--track); border-radius: 4px; margin-top: 8px; }
+  .dbar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--muted); opacity: .5; }
+  .dbar i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+  .dbar i.over { left: 50%; background: var(--accent); }
+  .dbar i.under { right: 50%; background: var(--out); }
 
   dialog { border: 0; padding: 0; background: var(--card); color: var(--text); width: min(520px, 100%); max-width: 100%; max-height: 92vh; margin: auto auto 0; border-radius: 20px 20px 0 0; }
   dialog::backdrop { background: rgba(0,0,0,.4); }
@@ -128,25 +166,29 @@
   .check { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; font-size: 15px; color: var(--text); }
   .check input { width: 22px; height: 22px; accent-color: var(--accent); }
   .btns { display: flex; gap: 10px; margin-top: 18px; }
-  .btn { flex: 1; border: 0; border-radius: 12px; padding: 13px; font-weight: 600; background: var(--accent); color: #fff; }
-  @media (prefers-color-scheme: dark) { .btn { color: #0d1210; } }
+  .btn { flex: 1; border: 0; border-radius: 12px; padding: 13px; font-weight: 600; background: var(--accent); color: var(--on-accent); }
   .btn.ghost { background: var(--bg); color: var(--text); }
   .section { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 6px; }
   .section h3 { font-size: 15px; margin: 12px 0 2px; }
   .help { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
 
-  #toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(120px); background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 14px; display: flex; gap: 14px; align-items: center; transition: transform .25s; max-width: calc(100% - 32px); z-index: 10; font-size: 15px; }
+  #toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(120px); background: var(--toast-bg); color: var(--toast-text); box-shadow: 0 6px 24px rgba(0,0,0,.35); padding: 12px 16px; border-radius: 14px; display: flex; gap: 14px; align-items: center; transition: transform .25s; max-width: calc(100% - 32px); z-index: 10; font-size: 15px; }
   #toast.show { transform: translateX(-50%) translateY(0); }
-  #toast button { border: 0; background: none; color: var(--accent-soft); font-weight: 700; padding: 0; }
+  #toast button { border: 0; background: none; color: var(--toast-action); font-weight: 700; padding: 0; }
 </style>
 </head>
 <body>
 <header>
   <h1>Hours</h1>
+  <div class="head-btns">
+  <button class="icon-btn" id="summaryBtn" aria-label="Monthly summary">
+    <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+  </button>
   <button class="icon-btn" id="settingsBtn" aria-label="Settings">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     <span class="dot" id="backupDot" hidden></span>
   </button>
+  </div>
 </header>
 
 <section class="card" id="today"></section>
@@ -185,12 +227,32 @@
     <button type="button" class="link" id="addSession">+ Add another check-in</button>
     <label class="check"><input type="checkbox" id="editLunch"><span>Take off lunch (<span id="lunchMins"></span> min)</span></label>
     <label class="check"><input type="checkbox" id="editOff"><span>Day off / holiday (counts as <span id="offHours"></span>)</span></label>
+    <div id="offOpts" hidden>
+      <label for="editOffType">Type of day off</label>
+      <select id="editOffType"></select>
+      <div id="untilWrap">
+        <label for="editUntil">Until (optional, for more than one day)</label>
+        <input type="date" id="editUntil">
+      </div>
+    </div>
     <label for="editWt">Where</label>
     <select id="editWt"><option value="office">In office</option><option value="wfh">WFH</option><option value="">Not recorded</option></select>
     <label for="editNote">Note</label>
     <input type="text" id="editNote" placeholder="e.g. medical appointment">
     <div class="btns"><button type="button" class="btn ghost" id="deleteDay" style="color:var(--warn)">Delete day</button></div>
   </form>
+</dialog>
+
+<!-- Monthly summary -->
+<dialog id="sumDlg">
+  <div class="sheet">
+    <div class="sheet-head">
+      <span style="width:50px"></span>
+      <h2>Summary</h2>
+      <button type="button" class="link" data-close style="width:50px;text-align:right">Done</button>
+    </div>
+    <div id="sumBody"></div>
+  </div>
 </dialog>
 
 <!-- Settings -->
@@ -205,6 +267,8 @@
       <div style="flex:1"><label for="setTarget">Weekly hours</label><input type="number" id="setTarget" step="0.25" min="0" inputmode="decimal"></div>
       <div style="flex:1"><label for="setLunch">Lunch (minutes)</label><input type="number" id="setLunch" step="5" min="0" inputmode="numeric"></div>
     </div>
+    <label for="setTheme">Appearance</label>
+    <select id="setTheme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Match phone</option></select>
 
     <div class="section">
       <h3>Google Form</h3>
@@ -248,7 +312,7 @@
 
 <script>
 const KEY = 'hours-tracker-v1';
-const DEFAULTS = { target: 37.5, lunch: 30, openForm: true, formUrl: '', syncUrl: '', syncKey: '', workType: 'office' };
+const DEFAULTS = { target: 37.5, lunch: 30, openForm: true, formUrl: '', syncUrl: '', syncKey: '', workType: 'office', theme: 'dark' };
 // The Holosphere form's question IDs, used to pre-fill it.
 const FORM = { workType: 'entry.1305083342', action: 'entry.1404609471', reason: 'entry.985430679' };
 const WORK_TYPES = { office: { label: 'In office', form: 'In Office' }, wfh: { label: 'WFH', form: 'Remote' } };
@@ -272,9 +336,9 @@ let state = load();
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.days) return { days: s.days, settings: { ...DEFAULTS, ...s.settings }, lastBackup: s.lastBackup || 0, pending: s.pending || {}, lastSync: s.lastSync || 0, lunchPick: s.lunchPick || null };
+    if (s && s.days) return { days: s.days, settings: { ...DEFAULTS, ...s.settings }, lastBackup: s.lastBackup || 0, pending: s.pending || {}, lastSync: s.lastSync || 0, lunchPick: s.lunchPick || null, bhAdded: s.bhAdded || {}, bhChecked: s.bhChecked || '' };
   } catch (e) {}
-  return { days: {}, settings: { ...DEFAULTS }, lastBackup: 0, pending: {}, lastSync: 0 };
+  return { days: {}, settings: { ...DEFAULTS }, lastBackup: 0, pending: {}, lastSync: 0, lunchPick: null, bhAdded: {}, bhChecked: '' };
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -359,7 +423,8 @@ function dayMinutes(key, now) {
   }
   let net = gross;
   if (day.lunch !== false && gross > 0) net = Math.max(0, gross - state.settings.lunch);
-  if (day.off) net += dailyTarget();
+  // A TOIL day spends hours already banked, so it adds nothing; other days off count as a full day.
+  if (day.off && offTypeOf(day.note) !== 'TOIL') net += dailyTarget();
   return { gross, net, open, missing };
 }
 
@@ -406,7 +471,7 @@ function render() {
     const daysLeft = Math.max(0, 5 - wd - (t.gross > 0 && !isIn ? 1 : 0));
     if (daysLeft > 0 && !(isIn && daysLeft === 1)) hints.push(`Need <b class="num">${dur(left / daysLeft)}</b> a day over ${daysLeft} more day${daysLeft > 1 ? 's' : ''}`);
   }
-  const sinceTxt = isIn ? `since ${last.i}` : (t.gross ? `${dur(t.net)} today` : 'Not checked in today');
+  const sinceTxt = isIn ? `since ${last.i}` : t.gross ? `${dur(t.net)} today` : day && day.off ? esc(day.note || 'Day off') : 'Not checked in today';
   $('today').innerHTML = `
     <div class="status"><span class="pill ${isIn ? 'on' : ''}">${isIn ? 'Checked in' : 'Checked out'}</span><span class="num" style="color:var(--muted);font-size:14px">${sinceTxt}</span></div>
     ${isIn ? `<div class="big num">${dur(t.net)}</div><div class="of">today, after lunch</div>` : ''}
@@ -456,10 +521,11 @@ function render() {
       <span class="t num">${times}${note}</span>
       <span class="h num">${m.net || rec ? dur(m.net) : ''}</span></button>`;
   }
-  html += `<button class="add-day" id="addDay">+ Add or fix a day</button>`;
+  html += `<button class="add-day" id="addDay">+ Add or fix a day</button><button class="add-day" id="addOff">+ Log a day off</button>`;
   $('days').innerHTML = html;
   $('days').querySelectorAll('.day').forEach(b => b.onclick = () => openEdit(b.dataset.key));
   $('addDay').onclick = () => openEdit(null);
+  $('addOff').onclick = () => openEdit(null, { off: true });
 
   const backedUp = Math.max(state.lastBackup, state.settings.syncUrl ? state.lastSync : 0);
   $('backupDot').hidden = !(Object.keys(state.days).length && Date.now() - backedUp > 14 * 864e5);
@@ -543,16 +609,20 @@ function sessionRow(s = { i: '', o: '' }) {
   row.querySelector('.x').onclick = () => row.remove();
   $('sessions').appendChild(row);
 }
-function openEdit(key) {
+function openEdit(key, opts = {}) {
   editingKey = key;
-  const rec = (key && state.days[key]) || newDay();
-  $('editTitle').textContent = key ? `${WD[(fromIso(key).getDay() + 6) % 7]} ${short(fromIso(key))}` : 'Add a day';
+  const rec = (key && state.days[key]) || { ...newDay(), off: !!opts.off };
+  $('editTitle').textContent = key ? `${WD[(fromIso(key).getDay() + 6) % 7]} ${short(fromIso(key))}` : opts.off ? 'Log a day off' : 'Add a day';
+  $('editOffType').value = offTypeOf(rec.note) || 'Annual leave';
+  $('editUntil').value = '';
+  $('untilWrap').hidden = !!key;
+  $('offOpts').hidden = !rec.off;
   $('editDate').value = key || iso(new Date());
   $('sessions').innerHTML = '';
   (rec.s.length ? rec.s : [{ i: '', o: '' }]).forEach(sessionRow);
   $('editLunch').checked = rec.lunch !== false;
   $('editOff').checked = !!rec.off;
-  $('editNote').value = rec.note || '';
+  $('editNote').value = rec.note || (rec.off ? $('editOffType').value : '');
   $('editWt').value = rec.wt || '';
   $('lunchMins').textContent = state.settings.lunch;
   $('offHours').textContent = dur(dailyTarget());
@@ -560,6 +630,43 @@ function openEdit(key) {
   $('editDlg').showModal();
 }
 $('addSession').onclick = () => sessionRow();
+
+// ---- days off ----
+const OFF_TYPES = ['Annual leave', 'Sick leave', 'Bank holiday', 'TOIL', 'Compassionate leave', 'Other'];
+const offTypeOf = note => OFF_TYPES.find(t => (note || '').toLowerCase().startsWith(t.toLowerCase())) || '';
+$('editOffType').innerHTML = OFF_TYPES.map(t => `<option>${t}</option>`).join('');
+$('editOff').onchange = () => {
+  $('offOpts').hidden = !$('editOff').checked;
+  if ($('editOff').checked && !$('editNote').value.trim()) $('editNote').value = $('editOffType').value;
+};
+$('editOffType').onchange = () => {
+  // Swap the note only if it's empty or still one of the standard wordings.
+  const note = $('editNote').value.trim();
+  if (!note || offTypeOf(note)) $('editNote').value = $('editOffType').value;
+};
+
+// UK bank holidays (England & Wales) are logged as days off once a day, from your first logged day to a year ahead.
+// Each date is only ever added once, so deleting one in the app or sheet keeps it deleted.
+async function addBankHolidays() {
+  const today = iso(new Date());
+  const keys = Object.keys(state.days).filter(k => state.days[k].s.length).sort();
+  if (state.bhChecked === today || !keys.length) return;
+  try {
+    const data = await fetch('https://www.gov.uk/bank-holidays.json').then(r => r.json());
+    const until = iso(addDays(new Date(), 365));
+    const added = [];
+    for (const ev of data['england-and-wales'].events) {
+      if (ev.date < keys[0] || ev.date > until || state.bhAdded[ev.date]) continue;
+      state.bhAdded[ev.date] = true;
+      if (state.days[ev.date]) continue;
+      state.days[ev.date] = { ...newDay(), off: true, note: `Bank holiday – ${ev.title}`, wt: '' };
+      added.push(ev.date);
+    }
+    state.bhChecked = today;
+    if (added.length) markDirty(...added); else save();
+    render();
+  } catch (e) { /* offline – try again next time */ }
+}
 $('editForm').onsubmit = e => {
   e.preventDefault();
   const key = $('editDate').value;
@@ -570,6 +677,24 @@ $('editForm').onsubmit = e => {
   for (const x of s) if (x.o && toMin(x.o) < toMin(x.i)) { toast('A check-out is before its check-in'); return; }
   s.sort((a, b) => toMin(a.i) - toMin(b.i));
   const rec = { s, lunch: $('editLunch').checked, off: $('editOff').checked, note: $('editNote').value.trim(), wt: $('editWt').value };
+  if (rec.off && !rec.note) rec.note = $('editOffType').value;
+  // A new day off with an "Until" date covers every weekday in between, skipping days already logged.
+  const until = $('editUntil').value;
+  if (!editingKey && rec.off && until > key) {
+    const keys = [];
+    for (let d = fromIso(key); iso(d) <= until; d = addDays(d, 1)) {
+      const k = iso(d);
+      if (d.getDay() % 6 === 0 || state.days[k]) continue;
+      state.days[k] = { ...rec, s: [] };
+      keys.push(k);
+    }
+    if (keys.length) markDirty(...keys);
+    viewMon = monday(fromIso(key));
+    $('editDlg').close();
+    render();
+    toast(`Logged ${keys.length} day${keys.length === 1 ? '' : 's'} off`);
+    return;
+  }
   if (editingKey && editingKey !== key) delete state.days[editingKey];
   if (!s.length && !rec.off && !rec.note) delete state.days[key];
   else state.days[key] = rec;
@@ -585,12 +710,75 @@ $('deleteDay').onclick = () => {
 };
 
 // ---- settings ----
+// ---- monthly summary ----
+// Every logged weekday is measured against the daily target (7h 30m by default); weekends against zero.
+// Days with nothing logged are left out, so untracked holidays don't drag the balance down.
+// Today only counts once you've checked out.
+function summary(now) {
+  const todayKey = iso(now);
+  const months = {};
+  let balance = 0, first = '';
+  // Start from the first worked day, so leave from before tracking began doesn't show as empty months.
+  const keys = Object.keys(state.days).sort();
+  const start = keys.find(k => state.days[k].s.length) || '';
+  for (const k of keys) {
+    const rec = state.days[k];
+    if (k < start || k > todayKey || (!rec.s.length && !rec.off)) continue;
+    const m = dayMinutes(k, now);
+    if (m.open) continue;
+    const target = fromIso(k).getDay() % 6 ? dailyTarget() : 0;
+    const mo = months[k.slice(0, 7)] || (months[k.slice(0, 7)] = { net: 0, target: 0, worked: 0, hit: 0, missed: 0, off: 0 });
+    mo.net += m.net;
+    mo.target += target;
+    if (!rec.s.length) mo.off++;
+    else { mo.worked++; if (m.net >= target) mo.hit++; else mo.missed++; }
+    balance += m.net - target;
+    first = first || k;
+  }
+  return { balance, first, months };
+}
+
+const signed = m => `${m < 0 ? '−' : '+'}${dur(Math.abs(m))}`;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function renderSummary() {
+  const now = new Date();
+  const { balance, first, months } = summary(now);
+  if (!first) { $('sumBody').innerHTML = '<p class="help">Nothing logged yet.</p>'; return; }
+  const keys = Object.keys(months).sort().reverse();
+  const widest = Math.max(1, ...keys.map(k => Math.abs(months[k].net - months[k].target)));
+  const all = keys.reduce((a, k) => ({ hit: a.hit + months[k].hit, worked: a.worked + months[k].worked }), { hit: 0, worked: 0 });
+  const cls = m => (m >= 0 ? 'over' : 'under');
+  $('sumBody').innerHTML = `
+    <div class="of">Running balance since ${short(fromIso(first))} ${first.slice(0, 4)}</div>
+    <div class="big num bal ${cls(balance)}">${signed(balance)}</div>
+    <div class="of">${balance >= 0 ? 'over' : 'under'} your hours</div>
+    <div class="stats" style="margin-top:14px">
+      <div class="stat"><small>Days worked</small><b class="num">${all.worked}</b></div>
+      <div class="stat"><small>Days on target</small><b class="num">${all.worked ? Math.round(all.hit / all.worked * 100) : 0}%</b></div>
+    </div>
+    <div class="months">
+      ${keys.map(k => {
+        const mo = months[k], diff = mo.net - mo.target;
+        const pct = Math.abs(diff) / widest * 50;
+        return `<div class="month">
+          <div class="month-top"><b>${MONTH_NAMES[+k.slice(5) - 1]} ${k.slice(0, 4)}</b><span class="diff num ${cls(diff)}">${signed(diff)}</span></div>
+          <div class="dbar"><i class="${cls(diff)}" style="width:${pct}%"></i></div>
+          <small class="num">${dur(mo.net)} of ${dur(mo.target)} · ${mo.hit} hit · ${mo.missed} missed${mo.off ? ` · ${mo.off} off` : ''}</small>
+        </div>`;
+      }).join('')}
+    </div>
+    <p class="help" style="margin-top:14px">Each logged weekday counts against ${dur(dailyTarget())}, after lunch. Days off count as a full day (TOIL counts as zero). Days with nothing logged are left out. Today counts once you check out.</p>`;
+}
+$('summaryBtn').onclick = () => { renderSummary(); $('sumDlg').showModal(); $('sumDlg').scrollTop = 0; };
+
 $('settingsBtn').onclick = () => {
   const s = state.settings;
   $('setTarget').value = s.target;
   $('setLunch').value = s.lunch;
   $('setOpenForm').checked = s.openForm;
   $('setFormUrl').value = s.formUrl;
+  $('setTheme').value = s.theme;
   $('setSyncUrl').value = s.syncUrl;
   $('setSyncKey').value = s.syncKey;
   $('importText').value = '';
@@ -610,14 +798,24 @@ $('setForm').onsubmit = e => {
     lunch: isFinite(lunch) && lunch >= 0 ? lunch : DEFAULTS.lunch,
     openForm: $('setOpenForm').checked,
     formUrl: $('setFormUrl').value.trim(),
+    theme: $('setTheme').value,
     syncUrl: $('setSyncUrl').value.trim(),
     syncKey: $('setSyncKey').value,
   };
   // New sheet details: send everything so the sheet starts with the full history.
   if (state.settings.syncUrl && (state.settings.syncUrl !== old.syncUrl || state.settings.syncKey !== old.syncKey)) uploadAll();
   else save();
+  applyTheme();
   $('setDlg').close(); render();
 };
+function applyTheme() {
+  let t = state.settings.theme;
+  if (t === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  $('themeColor').content = t === 'light' ? '#f3f5f4' : '#111513';
+}
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
+applyTheme();
 function uploadAll() {
   const keys = Object.keys(state.days);
   if (keys.length) markDirty(...keys); else { save(); sync(); }
@@ -709,11 +907,11 @@ $('restoreFile').onchange = async e => {
 // ---- week nav + refresh ----
 $('prevWeek').onclick = () => { viewMon = addDays(viewMon, -7); render(); };
 $('nextWeek').onclick = () => { viewMon = addDays(viewMon, 7); render(); };
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { viewMon = monday(new Date()); render(); sync(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { viewMon = monday(new Date()); render(); sync().then(addBankHolidays); } });
 window.addEventListener('online', sync);
 setInterval(render, 30000);
 render();
-sync();
+sync().then(addBankHolidays);
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>

@@ -1,5 +1,5 @@
-// Network first so updates show up, cached copy when offline.
-const CACHE = 'hours-v3';
+// Opens instantly from the saved copy, then fetches the latest in the background for next time.
+const CACHE = 'hours-v7';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -17,13 +17,15 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  const fresh = fetch(e.request).then(res => {
+    if (res.ok) {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copy));
+    }
+    return res;
+  });
+  e.waitUntil(fresh.catch(() => {}));
   e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
-        return res;
-      })
-      .catch(() => caches.match(e.request, { ignoreSearch: true }))
+    caches.match(e.request, { ignoreSearch: true }).then(cached => cached || fresh)
   );
 });
