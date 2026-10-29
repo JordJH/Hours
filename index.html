@@ -349,7 +349,7 @@ const newDay = () => ({ s: [], lunch: true, off: false, note: '' });
 // ---- Google Sheets sync ----
 // Changed dates wait in state.pending (date → change count) until the sheet confirms them.
 // After each send, the sheet's copy replaces ours, apart from dates changed meanwhile.
-let syncing = false, syncError = '', syncTimer;
+let syncing = false, syncAgain = false, syncError = '', syncTimer;
 function markDirty(...keys) {
   for (const k of keys) state.pending[k] = (state.pending[k] || 0) + 1;
   save();
@@ -358,13 +358,17 @@ function markDirty(...keys) {
 }
 async function sync() {
   const { syncUrl, syncKey } = state.settings;
-  if (!syncUrl || syncing) return;
-  syncing = true; syncError = ''; renderSync();
+  if (!syncUrl) return;
+  // Changes made while a sync is running go in a follow-up sync straight after.
+  if (syncing) { syncAgain = true; return; }
+  syncing = true; syncAgain = false; syncError = ''; renderSync();
   try {
     const sent = { ...state.pending };
     const days = {};
     for (const k in sent) days[k] = state.days[k] || null;
+    // Give up after 90 seconds, so a request the phone paused can't block syncing forever.
     const res = await fetch(syncUrl, {
+      signal: AbortSignal.timeout(90000),
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ key: syncKey, action: Object.keys(days).length ? 'put' : 'list', days }),
@@ -379,12 +383,14 @@ async function sync() {
     state.lastSync = Date.now();
     save();
   } catch (e) {
-    syncError = e.name === 'TypeError'
+    syncError = e.name === 'TimeoutError' || e.name === 'AbortError' ? 'took too long – tap Sync now to try again'
+      : e.name === 'TypeError'
       ? (navigator.onLine ? 'couldn’t reach the script – check the link is the Web app one ending in /exec' : 'No connection – will retry')
       : e.name === 'SyntaxError' ? 'the script link didn’t reply – check it ends in /exec and access is set to Anyone'
       : e.message;
   } finally {
     syncing = false;
+    if (syncAgain && !syncError) { syncAgain = false; setTimeout(sync, 300); }
     render();
   }
 }
