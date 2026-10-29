@@ -315,7 +315,7 @@
 <script>
 const KEY = 'hours-tracker-v1';
 // Bump this (and CACHE in sw.js) with every push, so you can see which version the phone is running.
-const APP_VERSION = '1.9 · 29 Oct 2026';
+const APP_VERSION = '1.11 · 29 Oct 2026';
 const DEFAULTS = { target: 37.5, lunch: 30, openForm: true, formUrl: '', syncUrl: '', syncKey: '', workType: 'office', theme: 'dark' };
 // The Holosphere form's question IDs, used to pre-fill it.
 const FORM = { workType: 'entry.1305083342', action: 'entry.1404609471', reason: 'entry.985430679' };
@@ -340,15 +340,17 @@ let state = load();
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.days) return { days: s.days, settings: { ...DEFAULTS, ...s.settings }, lastBackup: s.lastBackup || 0, pending: s.pending || {}, lastSync: s.lastSync || 0, lunchPick: s.lunchPick || null, bhAdded: s.bhAdded || {}, bhChecked: s.bhChecked || '' };
+    if (s && s.days) return { days: s.days, settings: { ...DEFAULTS, ...s.settings }, lastBackup: s.lastBackup || 0, pending: s.pending || {}, lastSync: s.lastSync || 0, lunchPick: s.lunchPick || null, bhAdded: s.bhAdded || {}, bhChecked: s.bhChecked || '', bhVersion: s.bhVersion || 0 };
   } catch (e) {}
-  return { days: {}, settings: { ...DEFAULTS }, lastBackup: 0, pending: {}, lastSync: 0, lunchPick: null, bhAdded: {}, bhChecked: '' };
+  return { days: {}, settings: { ...DEFAULTS }, lastBackup: 0, pending: {}, lastSync: 0, lunchPick: null, bhAdded: {}, bhChecked: '', bhVersion: 0 };
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); }
   catch (e) { toast('Couldn’t save – storage is unavailable'); }
 }
 const newDay = () => ({ s: [], lunch: true, off: false, note: '' });
+// A day with nothing in it, like the date-only rows the sheet adds for missing weekdays.
+const hasData = rec => !!rec && (rec.s.length > 0 || rec.off || !!rec.note);
 
 // ---- Google Sheets sync ----
 // Changed dates wait in state.pending (date → change count) until the sheet confirms them.
@@ -434,8 +436,10 @@ function dayMinutes(key, now) {
   }
   let net = gross;
   if (day.lunch !== false && gross > 0) net = Math.max(0, gross - state.settings.lunch);
-  // A TOIL day spends hours already banked, so it adds nothing; other days off count as a full day.
-  if (day.off && offTypeOf(day.note) !== 'TOIL') net += dailyTarget();
+  // A weekday off counts as a full day, except TOIL, which spends hours already banked.
+  // Weekends expect no hours, so a day off on a Saturday or Sunday adds nothing.
+  const weekday = fromIso(key).getDay() % 6 !== 0;
+  if (day.off && weekday && offTypeOf(day.note) !== 'TOIL') net += dailyTarget();
   return { gross, net, open, missing };
 }
 
@@ -530,7 +534,7 @@ function render() {
     html += `<button class="${cls}" data-key="${key}">
       <span class="d"><b>${WD[i]}</b><span>${short(d)}</span></span>
       <span class="t num">${times}${note}</span>
-      <span class="h num">${m.net || rec ? dur(m.net) : ''}</span></button>`;
+      <span class="h num">${m.net || hasData(rec) ? dur(m.net) : ''}</span></button>`;
   }
   html += `<button class="add-day" id="addDay">+ Add or fix a day</button><button class="add-day" id="addOff">+ Log a day off</button>`;
   $('days').innerHTML = html;
@@ -659,6 +663,8 @@ $('editOffType').onchange = () => {
 // UK bank holidays (England & Wales) are logged as days off once a day, from your first logged day to a year ahead.
 // Each date is only ever added once, so deleting one in the app or sheet keeps it deleted.
 async function addBankHolidays() {
+  // One-off: the first bank holidays went to a sheet tab that was later deleted, so add them all again.
+  if (state.bhVersion !== 2) { state.bhAdded = {}; state.bhChecked = ''; state.bhVersion = 2; }
   const today = iso(new Date());
   const keys = Object.keys(state.days).filter(k => state.days[k].s.length).sort();
   if (state.bhChecked === today || !keys.length) return;
@@ -669,7 +675,7 @@ async function addBankHolidays() {
     for (const ev of data['england-and-wales'].events) {
       if (ev.date < keys[0] || ev.date > until || state.bhAdded[ev.date]) continue;
       state.bhAdded[ev.date] = true;
-      if (state.days[ev.date]) continue;
+      if (hasData(state.days[ev.date])) continue;
       state.days[ev.date] = { ...newDay(), off: true, note: `Bank holiday – ${ev.title}`, wt: '' };
       added.push(ev.date);
     }
@@ -695,7 +701,7 @@ $('editForm').onsubmit = e => {
     const keys = [];
     for (let d = fromIso(key); iso(d) <= until; d = addDays(d, 1)) {
       const k = iso(d);
-      if (d.getDay() % 6 === 0 || state.days[k]) continue;
+      if (d.getDay() % 6 === 0 || hasData(state.days[k])) continue;
       state.days[k] = { ...rec, s: [] };
       keys.push(k);
     }
