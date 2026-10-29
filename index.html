@@ -211,6 +211,7 @@
 <section class="card days" id="days" style="padding:0"></section>
 
 <p class="foot" id="foot"></p>
+<p class="foot" id="version" style="margin-top:2px;opacity:.7"></p>
 
 <!-- Edit day -->
 <dialog id="editDlg">
@@ -305,6 +306,7 @@
       </div>
       <input type="file" id="restoreFile" accept=".json,application/json" hidden>
     </div>
+    <p class="help" style="margin-top:20px;text-align:center" id="versionInfo"></p>
   </form>
 </dialog>
 
@@ -312,6 +314,8 @@
 
 <script>
 const KEY = 'hours-tracker-v1';
+// Bump this (and CACHE in sw.js) with every push, so you can see which version the phone is running.
+const APP_VERSION = '1.9 · 29 Oct 2026';
 const DEFAULTS = { target: 37.5, lunch: 30, openForm: true, formUrl: '', syncUrl: '', syncKey: '', workType: 'office', theme: 'dark' };
 // The Holosphere form's question IDs, used to pre-fill it.
 const FORM = { workType: 'entry.1305083342', action: 'entry.1404609471', reason: 'entry.985430679' };
@@ -406,6 +410,7 @@ function syncText() {
 }
 function renderSync() {
   $('foot').textContent = syncText();
+  $('version').textContent = $('versionInfo').textContent = `Version ${APP_VERSION}`;
   $('foot').style.color = syncError ? 'var(--warn)' : '';
   $('syncInfo').textContent = state.settings.syncUrl ? syncText() : '';
 }

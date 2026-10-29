@@ -1,5 +1,5 @@
 // Opens instantly from the saved copy, then fetches the latest in the background for next time.
-const CACHE = 'hours-v9';
+const CACHE = 'hours-v10';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
